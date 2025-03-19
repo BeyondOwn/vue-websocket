@@ -1,7 +1,5 @@
-import animate from 'tailwindcss-animate'
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: ['class'],
   content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
   theme: {
     container: {
@@ -99,6 +97,5 @@ module.exports = {
   variants: {
     extend: {},
   },
-
-  plugins: [animate],
+  plugins: [],
 }
