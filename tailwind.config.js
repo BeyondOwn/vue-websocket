@@ -89,6 +89,7 @@ module.exports = {
       },
     },
     fontFamily: {
+      poppins: ['var(--font-poppins)'],
       khand: ['var(--font-khand)'],
       sans: ['var(--font-inter)'],
       mono: ['var(--font-roboto-mono)'],

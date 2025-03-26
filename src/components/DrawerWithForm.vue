@@ -14,7 +14,8 @@ const emit = defineEmits<{
 
 // Define props with all customizable elements
 const props = defineProps<{
-  class?: string
+  classTrigger?: string | string[]
+  class?: string | string[]
   typedSchema: ReturnType<typeof toTypedSchema>
   triggerButtonText?: string
   dialogTitle?: string
@@ -56,7 +57,7 @@ const handleFormSubmit = (values: any) => {
   <Form v-slot="{ handleSubmit }" as="" keep-values :validation-schema="props.typedSchema">
     <Dialog v-model:open="isOpen">
       <DialogTrigger as-child>
-        <Button class="max-h-[20px] w-full bg-primary hover:bg-primary hover:opacity-90" variant="outline">
+        <Button variant="default" :class="['', props.classTrigger]">
           {{ triggerText }}
         </Button>
       </DialogTrigger>
@@ -79,7 +80,7 @@ const handleFormSubmit = (values: any) => {
         </form>
 
         <DialogFooter>
-          <Button type="submit" form="dialogForm">{{ submitText }}</Button>
+          <Button class="text-secondary" type="submit" form="dialogForm">{{ submitText }}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

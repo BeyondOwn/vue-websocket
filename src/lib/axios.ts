@@ -50,7 +50,8 @@ api.interceptors.response.use(
     // If the error is a 401 (Unauthorized)
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      // window.location.href = '/login'
+      toast(`${error.response?.data?.message || error.response.data.error || 'An error occurred'}`, { autoClose: 5000, type: 'error', theme: 'dark' })
       return Promise.reject(error)
     }
 
@@ -61,7 +62,7 @@ api.interceptors.response.use(
     }
 
     // For all other errors
-    toast(error.response?.data?.message || 'An error occurred', { autoClose: 5000, type: 'error', theme: 'dark' })
+    toast(error.response?.data?.message || error.response.data.error || 'An error occurred', { autoClose: 5000, type: 'error', theme: 'dark' })
     return Promise.reject(error)
   },
 )
