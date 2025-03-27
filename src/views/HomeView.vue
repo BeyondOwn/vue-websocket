@@ -135,7 +135,7 @@ async function displayUserServers() {
 provide('displayUserServers', displayUserServers)
 
 async function handleServerCreation(name: string, ownerId: number) {
-  const response = await api.post('http://localhost:3000/create-server', { name: name, ownerId: ownerId })
+  const response = await api.post('/create-server', { name: name, ownerId: ownerId })
   inputRoom.value = response.data.channel.name
   currentchannelId.value = response.data.channel.id
   toast(`You created server: ${response.data.server.name}`, { autoClose: 5000, type: 'success', position: 'bottom-right', theme: theme.value as ToastTheme })
@@ -150,7 +150,7 @@ const onServerCreation = (formValues: any) => {
   handleServerCreation(serverName, Number(user.value?.id))
 }
 async function getUserServers(user: User): Promise<[getUsersInt]> {
-  const response = await api.post('http://localhost:3000/get-user-servers', { user })
+  const response = await api.post('/get-user-servers', { user })
   return response.data
 }
 // const getActiveSockets = async () => {
@@ -163,7 +163,7 @@ async function getUserServers(user: User): Promise<[getUsersInt]> {
 
 // Connect to socket server
 const connectSocket = () => {
-  socket.value = io('http://localhost:3000', {
+  socket.value = io('https://websocket-api-production.up.railway.app', {
     extraHeaders: {
       authorization: `${token.value}`,
       userprofile: JSON.stringify(user.value),

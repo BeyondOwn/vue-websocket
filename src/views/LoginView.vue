@@ -8,7 +8,7 @@ const email = ref('')
 const password = ref('')
 
 function GoogleAuth() {
-  window.location.href = `http://localhost:3000/auth/google`
+  window.location.href = `https://websocket-api-production.up.railway.app/auth/google`
 }
 
 const { setAuthData } = useAuth()

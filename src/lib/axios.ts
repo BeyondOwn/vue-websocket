@@ -3,7 +3,7 @@ import { toast } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: 'https://websocket-api-production.up.railway.app',
   withCredentials: true,
   timeout: 5000, // 5 second timeout
 })
