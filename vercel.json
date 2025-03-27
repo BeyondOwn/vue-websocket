@@ -1,6 +1,8 @@
 {
-  "rewrites": [
-    { "source": "/login", "destination": "/login" },
-    { "source": "/login/:token", "destination": "/login" }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/" }],
+  "routes": [
+    { "src": "/login", "dest": "/" },
+    { "src": "/login/(.*)", "dest": "/" }
+  ],
+  "builds": [{ "src": "package.json", "use": "@vercel/static-build" }]
 }
