@@ -560,13 +560,20 @@ const disconnectSocket = () => {
 // Send message to server
 const sendMessage = (serverId: string, channelId: number, message: string) => {
   console.log('From Sendmessage ', serverId, channelId, message)
-  if (!imagesUploaded.value) startUpload.value = true
+  if (ImagePreviewRef.value.length > 0 && !imagesUploaded.value) startUpload.value = true
   // console.log('still sendmessage: ', imagesUploaded.value, startUpload.value)
-
-  if (newMessage.value.trim() && connected.value && socket.value && imagesUploaded.value) {
-    socket.value.emit('sendMessage', serverId, channelId, message)
-    newMessage.value = ''
-    startUpload.value = false
+  if (ImagePreviewRef.value.length > 0) {
+    if (newMessage.value.trim() && connected.value && socket.value && imagesUploaded.value) {
+      socket.value.emit('sendMessage', serverId, channelId, message)
+      newMessage.value = ''
+      startUpload.value = false
+    }
+  } else {
+    if (newMessage.value.trim() && connected.value && socket.value) {
+      socket.value.emit('sendMessage', serverId, channelId, message)
+      newMessage.value = ''
+      startUpload.value = false
+    }
   }
 }
 
