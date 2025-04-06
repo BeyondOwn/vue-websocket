@@ -1,8 +1,8 @@
 <template>
-  <Button @click="toggleTheme" class="flex items-center gap-2" variant="outline">
-    <SunIcon v-if="isDark" class="h-5 w-5" />
-    <MoonIcon v-else class="h-5 w-5" />
+  <Button @click="toggleTheme" class="gap-0 max-w-8 max-h-8 items-center justify-baseline p-0 ml-0 space-x-2" variant="ghost">
     <span>{{ isDark ? 'Light' : 'Dark' }} Mode</span>
+    <SunIcon v-if="isDark" class="h-5 w-5 text-foreground" />
+    <MoonIcon v-else class="h-5 w-5 text-foreground" />
   </Button>
 </template>
 

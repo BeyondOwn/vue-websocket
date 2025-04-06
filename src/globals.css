@@ -33,11 +33,11 @@
     --font-poppins: 'Poppins', sans-serif;
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
+    --card: 0 0% 85%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 210 84% 39%;
+    --primary: 221 97.5% 53.5%;
     --primary-foreground: 0 0% 98%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
@@ -65,17 +65,17 @@
     --toast-error-foreground: 0 84.2% 96.2%;
   }
   .dark {
-    --background: 0 0% 9%;
+    --background: 240 5% 21%;
     --foreground: 0 0% 98%;
-    --card: 0 0% 20%;
+    --card: 240 5% 25%;
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 210 84% 39%;
+    --primary: 221 97.5% 53.5%;
     --primary-foreground: 240 5.9% 10%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 0 0% 95%;
-    --muted: 240 3.7% 15.9%;
+    --muted: 240 5% 18%;
     --muted-foreground: 240 5% 64.9%;
     --accent: 240 3.7% 15.9%;
     --accent-foreground: 0 0% 98%;

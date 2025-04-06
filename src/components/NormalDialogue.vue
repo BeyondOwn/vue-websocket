@@ -33,7 +33,7 @@ const disabled = computed(() => {
 <template>
   <Dialog>
     <DialogTrigger as-child>
-      <Button :disabled="disabled" title="Leave Server" variant="outline" :class="[props.classTrigger]">
+      <Button :disabled="disabled" title="Leave Server" variant="outline" :class="['font-poppins', props.classTrigger]">
         <span class="sr-only">Leave Door</span>
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-door-open-icon lucide-door-open">
           <path d="M13 4h3a2 2 0 0 1 2 2v14" />
@@ -45,7 +45,7 @@ const disabled = computed(() => {
         <span>{{ triggerText }}</span>
       </Button>
     </DialogTrigger>
-    <DialogContent :class="['flex flex-col sm:max-w-md', props.class]">
+    <DialogContent :class="['flex flex-col sm:max-w-md font-poppins', props.class]">
       <DialogHeader>
         <DialogTitle>{{ title }}</DialogTitle>
         <DialogDescription>

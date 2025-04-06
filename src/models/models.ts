@@ -5,3 +5,8 @@ export interface User {
   email: string
   picture: string
 }
+
+export type UrlData = {
+  link: string
+  isImage: boolean
+}

@@ -1,15 +1,23 @@
 <script setup lang="ts">
 import DrawerWithForm from '@/components/DrawerWithForm.vue'
+import ImagePreview from '@/components/ImagePreview.vue'
 import NormalDialogue from '@/components/NormalDialogue.vue'
 import ShareDialogue from '@/components/ShareDialogue.vue'
-import ToggleTheme from '@/components/ToggleTheme.vue'
+import DropdownMenu from '@/components/ui/dropdown-menu/DropdownMenu.vue'
+import DropdownMenuContent from '@/components/ui/dropdown-menu/DropdownMenuContent.vue'
+import DropdownMenuItem from '@/components/ui/dropdown-menu/DropdownMenuItem.vue'
+import DropdownMenuLabel from '@/components/ui/dropdown-menu/DropdownMenuLabel.vue'
+import DropdownMenuSeparator from '@/components/ui/dropdown-menu/DropdownMenuSeparator.vue'
+import DropdownMenuTrigger from '@/components/ui/dropdown-menu/DropdownMenuTrigger.vue'
 import Textarea from '@/components/ui/textarea/Textarea.vue'
+import UploadThing from '@/components/UploadThing.vue'
 import { useAuth } from '@/lib/authContext'
-import api from '@/lib/axios'
+import api, { BACKEND } from '@/lib/axios'
 import { useTheme } from '@/lib/UseTheme'
-import type { User } from '@/models/models'
+import type { UrlData, User } from '@/models/models'
 import router from '@/router'
 import { toTypedSchema } from '@vee-validate/zod'
+import { Ellipsis, PencilLine, Trash2Icon } from 'lucide-vue-next'
 import { io, Socket } from 'socket.io-client'
 import { computed, isRef, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { toast, type ToastTheme } from 'vue3-toastify'
@@ -25,11 +33,16 @@ interface activeSocketsChannelInt {
 }
 
 interface Message {
+  id: string
+  type?: string
   content: string
+  links?: UrlData[]
   createdAt: Date
   userId: number
   channelId?: number
   user?: User
+  edited: boolean
+  editedAt: Date | null
 }
 
 interface getUsersInt {
@@ -64,7 +77,7 @@ const messages = ref<Message[]>()
 const newMessage = ref('')
 const userId = ref('')
 const { user, token, logout } = useAuth()
-console.log('User: ', user.value?.name)
+console.log('User: ', user.value)
 const inputRoom = ref('')
 const currentchannelName = ref('')
 const currentchannelId = ref<number>(0)
@@ -78,6 +91,46 @@ let prevScrollPosition = 0
 const close = ref(false)
 const inviteCodeRef = ref('')
 const currentServerOwner = ref('')
+const ImagePreviewRef = ref<File[]>([])
+const showPreview = ref<boolean>(false)
+const isHovered = ref<boolean[]>([])
+const isMenuOpen = ref<boolean[]>([])
+const editor = ref<boolean[]>([])
+const editorText = ref<string>('')
+const editorSubmit = ref<boolean>(false)
+const startUpload = ref<boolean>(false)
+const imagesUploaded = ref<boolean>(false)
+const imagesLoading = ref(false)
+
+const isActive = computed(() => {
+  return (index: number) => {
+    return isHovered.value[index] || isMenuOpen.value[index]
+  }
+})
+
+const handleDeleteMessage = async (userId: number, messageId: string, channelId: number) => {
+  socket.value?.emit('delete-message', { userId, messageId, channelId })
+}
+
+const handleEditMessage = async (userId: number, messageId: string, channelId: number, newContent: string, index: number, oldValue: string) => {
+  editorText.value = oldValue
+  editor.value[index] = true
+  console.log('From HandleEdit: ', editor.value, editorSubmit.value, editorText.value)
+  if (editorSubmit.value && editorText.value) {
+    socket.value?.emit('edit-message', { userId, messageId, channelId, newContent })
+    editorSubmit.value = false
+    editor.value[index] = false
+  }
+}
+
+const handleMouseLeave = (index: number) => {
+  // Only remove hover state if menu is closed
+  // console.log('isMenuOpen: ', isMenuOpen.value[index])
+  if (!isMenuOpen[index]) {
+    isHovered.value[index] = false
+  }
+  // console.log('isHovered: ', isHovered[index])
+}
 
 const { theme } = useTheme()
 console.log('Is it reactive: ', isRef(theme))
@@ -88,6 +141,85 @@ watch(
     console.log('Force-tracked: ', newTheme)
   },
   { deep: true },
+)
+
+// Function to wait for images within a specific element
+async function waitForImages(element: HTMLElement): Promise<void> {
+  const images: NodeListOf<HTMLImageElement> = element.querySelectorAll('img')
+  const promises: Promise<void>[] = []
+
+  images.forEach((img) => {
+    // Check if the image isn't already loaded or broken
+    if (!img.complete) {
+      promises.push(
+        new Promise((resolve) => {
+          img.onload = () => resolve()
+          img.onerror = () => {
+            console.warn(`Image failed to load: ${img.src}`)
+            resolve() // Resolve even on error so scrolling happens
+          }
+          img.onabort = () => {
+            // Handle aborts as well
+            console.warn(`Image load aborted: ${img.src}`)
+            resolve()
+          }
+        }),
+      )
+    } else if (img.naturalWidth === 0 && img.src) {
+      // It's 'complete' but failed to load (naturalWidth is 0)
+      console.warn(`Image already failed (complete but naturalWidth 0): ${img.src}`)
+    }
+  })
+
+  if (promises.length > 0) {
+    console.log(`Waiting for ${promises.length} image(s) in new message...`)
+    await Promise.allSettled(promises)
+    console.log('Images settled.')
+  } else {
+    console.log('No pending images found in the new message.')
+  }
+}
+
+// --- Watcher ---
+// Watch the messages array for changes (specifically additions)
+watch(
+  // Use props.messages if messages is a prop, else local ref messages.value
+  () => messages.value, // Watch the value of the ref directly
+  async (newMessages, oldMessages) => {
+    const oldLength = oldMessages?.length ?? 0
+    const newLength = newMessages?.length
+
+    // Trigger only when a message is added, and the container exists
+    if (newLength! > oldLength && messageContainer.value) {
+      console.log('New message detected.')
+      // Wait for Vue to render the new message element
+      await nextTick()
+
+      const container = messageContainer.value
+      const allMessageItems = Array.from(container!.querySelectorAll('.message-item'))
+
+      // Find the last one with img.with-picture
+      const lastMessageElement = allMessageItems.reverse().find((item) => item.querySelector('img.with-picture')) as HTMLElement
+
+      // console.log('LastImg: ', lastMessageElement)
+      if (lastMessageElement) {
+        // Wait for images within that *specific* last element to load/settle
+        await waitForImages(lastMessageElement)
+        // Scroll smoothly after images are ready
+        scrollToBottom()
+        console.log('SCROLLED')
+      } else {
+        console.warn('Could not find the last message element. Scrolling container anyway.')
+        // Fallback if the element isn't found immediately (shouldn't happen often)
+        scrollToBottom()
+      }
+    }
+    // Optional: Handle initial load scrolling
+    // if (newLength > 0 && oldLength === 0) {
+    //    scrollToBottom('auto'); // Instant scroll on initial load
+    // }
+  },
+  { deep: false }, // Only react to array changes (add/remove), not object content changes unless needed
 )
 
 const formSchemaInviteCode = toTypedSchema(
@@ -101,6 +233,82 @@ const formSchemaCreateServer = toTypedSchema(
     serverName: z.string().min(2).max(40),
   }),
 )
+
+const isModalOpen = ref(false)
+
+const openUploadModal = () => {
+  isModalOpen.value = true
+}
+
+const closeUploadModal = () => {
+  isModalOpen.value = false
+}
+
+const handleDeletePreview = (index: number) => {
+  ImagePreviewRef.value.splice(index, 1)
+  if (ImagePreviewRef.value.length == 0) {
+    showPreview.value = false
+  }
+}
+
+const handleDeletePreviewAll = () => {
+  ImagePreviewRef.value = []
+  showPreview.value = false
+}
+
+const handleFileReady = (file) => {
+  console.log('From handleFileReady: ', file)
+  ImagePreviewRef.value = file
+  showPreview.value = true
+  imagesUploaded.value = false
+}
+
+const handleUploadComplete = (result) => {
+  console.log('File uploaded successfully:', result)
+  result.forEach((element) => {
+    console.log('Each element: ', element)
+    newMessage.value = `${newMessage.value} ${element.ufsUrl}`
+  })
+  imagesLoading.value = false
+  imagesUploaded.value = true
+  toast('File uploaded successfully', { autoClose: 5000, type: 'success', theme: theme.value as ToastTheme, position: 'bottom-right' })
+  ImagePreviewRef.value = []
+  showPreview.value = false
+}
+
+// eslint-disable-next-line
+const handleUploadError = (error: any) => {
+  console.error('Upload failed:', error)
+  alert('Upload failed: ' + error.message)
+}
+
+function formatMessageWithLinks(message: Message) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const imgRegex = /(https?:\/\/.*\.(png|jpe?g|gif|webp|bmp|tiff?))/g
+
+  let formattedContent = message.content
+
+  formattedContent = formattedContent.replace(urlRegex, (url) => {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-400 underline">${url}</a>`
+  })
+
+  formattedContent = formattedContent.replace(imgRegex, (img) => {
+    return `<img src='${img}' class="with-picture max-w-full  object-contain" />`
+  })
+
+  if (message.links && message.links.length > 0) {
+    message.links.forEach((link) => {
+      if (link.isImage) {
+        // Replace image links based on the link metadata
+        formattedContent = formattedContent.replace(`<a href="${link.link}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-400 underline">${link.link}</a>`, `<img src="${link.link}"class="with-picture max-w-full object-contain " />`)
+      } else {
+        formattedContent = formattedContent.replace(`<a href="${link.link}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-400 underline">${link.link}</a>`, `<a href="${link.link}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-400 underline ">${link.link}</a>`)
+      }
+    })
+  }
+
+  return formattedContent
+}
 
 // eslint-disable-next-line
 async function onJoinServer(values: any) {
@@ -163,7 +371,7 @@ async function getUserServers(user: User): Promise<[getUsersInt]> {
 
 // Connect to socket server
 const connectSocket = () => {
-  socket.value = io('https://websocket-api-production.up.railway.app', {
+  socket.value = io(`${BACKEND}`, {
     extraHeaders: {
       authorization: `${token.value}`,
       userprofile: JSON.stringify(user.value),
@@ -218,31 +426,36 @@ const connectSocket = () => {
   })
 
   // Welcome message from server
-  socket.value.on('welcome', (data: { message: string; timestamp: Date }) => {
+  socket.value.on('welcome', (data: { id: string; message: string; timestamp: Date }) => {
     if (socket.value && socket.value.id) {
       userId.value = socket?.value?.id
     }
-    if (user.value) messages.value?.push({ content: data.message, createdAt: data.timestamp, userId: Number(user.value?.id) })
+    if (user.value) messages.value?.push({ edited: false, editedAt: null, id: data.id, content: data.message, createdAt: data.timestamp, userId: Number(user.value?.id) })
   })
 
   // New user joined
-  socket.value.on('newUser', (data: { message: string; timestamp: Date }) => {
-    if (user.value) messages.value?.push({ content: data.message, createdAt: data.timestamp, userId: Number(user.value.id) })
+  socket.value.on('newUser', (data: { id: string; message: string; timestamp: Date; type: string }) => {
+    if (user.value) messages.value?.push({ edited: false, editedAt: null, id: data.id, content: data.message, createdAt: data.timestamp, userId: Number(user.value.id), type: data.type })
+    console.log('newUser: ', messages.value)
   })
 
   // User left
   socket.value.on('userLeft', (data) => {
-    if (user.value) messages.value?.push({ content: data.message, createdAt: data.timestamp, userId: Number(user.value.id) })
+    if (user.value) messages.value?.push({ edited: false, editedAt: null, id: data.id, content: data.message, createdAt: data.timestamp, userId: Number(user.value.id), type: data.type })
   })
 
   socket.value.on('recentMessages', (data: Message[]) => {
     // Clear messages only if the data is not empty
     if (data && data.length > 0) {
       messages.value = data.map((message) => ({
+        id: message.id,
         content: message.content,
+        links: message.links,
         createdAt: message.createdAt,
         userId: message.userId,
         user: message.user,
+        edited: message.edited,
+        editedAt: message.editedAt,
       }))
 
       nextTick(() => {
@@ -251,15 +464,35 @@ const connectSocket = () => {
     }
     loading.value = false
     // just load initial messages
+    console.log('Recent mess: ', messages)
     LoadInitialMessages()
   })
 
-  socket.value.on('newMessage', (data: { userId: number; user: User; content: string; channelId: number; createdAt: Date }) => {
+  socket.value.on('newMessage', (data: { edited: boolean; editedAt: Date | null; id: string; links?: UrlData[]; userId: number; user: User; content: string; channelId: number; createdAt: Date }) => {
     console.log(data)
-    messages.value?.push({ content: data.content, createdAt: data.createdAt, userId: data.userId, user: data.user })
+    messages.value?.push({ edited: data.edited, editedAt: data.editedAt, id: data.id, links: data.links, content: data.content, createdAt: data.createdAt, userId: data.userId, user: data.user })
     nextTick(() => {
       scrollToBottom()
     })
+  })
+
+  socket.value.on('deletedMessage', (messageId: string) => {
+    // console.log('Tried to..', messageId)
+    messages.value = messages.value?.filter((message) => {
+      return message.id !== messageId
+    })
+    toast(`Deleted Message!}`, { autoClose: 3000, type: 'success', theme: theme.value as ToastTheme })
+  })
+
+  socket.value.on('editedMessage', (messageId: string, newContent: string) => {
+    console.log('Tried to edit..', messageId)
+    messages.value?.forEach((message, index) => {
+      if (message.id == messageId) {
+        messages.value![index].content = newContent
+      }
+    })
+    toast(`Edited Message!`, { autoClose: 3000, type: 'success', theme: theme.value as ToastTheme })
+    console.log(messages.value)
   })
 
   socket.value.on('gotOlderMessages', (olderMessages: Message[]) => {
@@ -327,9 +560,13 @@ const disconnectSocket = () => {
 // Send message to server
 const sendMessage = (serverId: string, channelId: number, message: string) => {
   console.log('From Sendmessage ', serverId, channelId, message)
-  if (newMessage.value.trim() && connected.value && socket.value) {
+  if (!imagesUploaded.value) startUpload.value = true
+  // console.log('still sendmessage: ', imagesUploaded.value, startUpload.value)
+
+  if (newMessage.value.trim() && connected.value && socket.value && imagesUploaded.value) {
     socket.value.emit('sendMessage', serverId, channelId, message)
     newMessage.value = ''
+    startUpload.value = false
   }
 }
 
@@ -418,7 +655,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="min-h-[100vh] max-h-[100vh] w-[100vw] grid grid-cols-12 bg-background text-foreground">
+  <main class="font-poppins min-h-[calc(100vh-40px)] max-h-[calc(100vh-40px)] w-[100vw] grid grid-cols-12 bg-background text-foreground">
     <!-- Sidebar with Server List -->
     <div :class="[`${showSidebarRight ? 'hidden' : ''}`, `${showSidebarLeft ? '' : 'hidden'}`, 'col-span-4 md:block md:col-span-2 max-w-full max-h-full row-span-full border-r border-border bg-muted/30']">
       <div class="flex h-16 items-center p-4 border-b border-border">
@@ -456,7 +693,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Main Content -->
-    <div :class="[`${showSidebarRight ? 'col-span-8' : ''}`, `${showSidebarLeft ? 'col-span-8' : ''}`, 'col-span-12 md:col-span-8 max-w-full  max-h-[100vh] row-span-full flex flex-col']">
+    <div :class="[`${showSidebarRight ? 'col-span-8' : ''}`, `${showSidebarLeft ? 'col-span-8' : ''}`, 'col-span-12 md:col-span-8 max-w-full  max-h-[calc(100vh-40px)] row-span-full flex flex-col']">
       <!-- Header -->
       <div class="flex flex-row flex-wrap max-w-full max-h-full md:h-16 items-center justify-end md:justify-between p-4 border-b border-border">
         <div class="flex items-center md:w-[20%] w-full">
@@ -464,19 +701,11 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="flex flex-row flex-wrap max-w-full max-h-full items-center space-x-2">
-          <ToggleTheme />
-          <Button @click="logout" title="Logout" type="button" variant="outline">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-out-icon lucide-log-out">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" x2="9" y1="12" y2="12" />
-            </svg>
-            <span>Logout</span>
-          </Button>
           <ShareDialogue :disabled="[currentServerId == undefined, close]" trigger-button-text="Invite Code" class="text-foreground" dialog-description="Anyone with this Invite Code can join the server." dialog-title="Share Invite Code" :link="inviteCodeRef"></ShareDialogue>
           <NormalDialogue :disabled="[currentServerId == undefined, close]" :fnc="() => onLeaveServer(user!, currentServerId!)" trigger-button-text="Leave" dialog-description=" " dialog-title="Are you sure you want to leave the server?" button1text="Close" button2text="Leave" button2class="justify-self-end bg-red-500 hover:bg-red-600" />
 
           <Button
+            class="font-poppins"
             @click="
               () => {
                 close = true
@@ -508,28 +737,86 @@ onBeforeUnmount(() => {
 
       <!-- Messages -->
       <div ref="messageContainer" @scroll="handleScroll" class="flex-1 max-h-[calc(100vh-120px)] overflow-y-scroll px-4 py-2 space-y-4">
-        <div v-for="(message, index) in messages" :key="index" class="flex flex-col">
-          <div v-if="message.user?.id === user?.id && close == false" class="flex flex-row-reverse justify-start items-start mb-4">
-            <div class="ml-4 flex-shrink-0">
+        <div v-for="(message, index) in messages" :key="index" class="message-item flex flex-col font-poppins">
+          <div v-if="message.user?.id === user?.id && close == false" class="flex justify-start items-start mb-4">
+            <div class="mr-4 flex-shrink-0">
               <div v-if="!message.user?.picture" class="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs">
                 {{ message.user?.name?.charAt(0) || 'U' }}
               </div>
               <img v-else class="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs" :src="message.user.picture" />
             </div>
-            <div class="flex-1 flex flex-col items-end">
-              <!-- username -->
-              <div class="text-base font-bold truncate max-w-[80%]">
+            <div
+              :class="`flex-1 flex-col rounded-md relative ${isActive(index) ? 'bg-card' : ''}`"
+              :onmouseenter="
+                () => {
+                  isHovered[index] = true
+                }
+              "
+              :onmouseleave="() => handleMouseLeave(index)"
+            >
+              <div v-if="message.type != 'system'" class="absolute top-0 right-0" :onmouseenter="() => (isHovered[index] = true)">
+                <DropdownMenu v-model:open="isMenuOpen[index]">
+                  <DropdownMenuTrigger as-child>
+                    <Button variant="ghost" :class="[`${!isActive(index) ? 'opacity-0' : 'opacity-100'}`, 'hover:bg-card']">
+                      <Ellipsis />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuLabel> Options </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <Button @click="handleDeleteMessage(Number(user?.id!), message.id, currentchannelId)" variant="ghost" class="p-0 flex items-center justify-between w-full text-red-500 group">
+                        <span class="text-red-500">Delete</span>
+                        <Trash2Icon class="text-red-500"></Trash2Icon>
+                      </Button>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Button @click="handleEditMessage(Number(user?.id!), message.id, currentchannelId, editorText, index, message.content)" variant="ghost" class="p-0 flex items-center justify-between w-full group">
+                        <span class="">Edit</span>
+                        <PencilLine class=""></PencilLine>
+                      </Button>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <div class="text-base text-blue-500 font-bold truncate max-w-[80%]">
                 {{ message.user?.name }}
               </div>
-              <div class="p-3 rounded-lg bg-blue-500 text-white text-sm max-w-[80%]">
+              <div v-if="editor[index]" class="p-3 rounded-lg bg-card text-sm w-full">
+                <Textarea class="flex-1 rounded-md min-h-[40px] w-full resize-none bg-background" v-model="editorText"> </Textarea>
+                <div class="mt-2 space-x-2 flex flex-row">
+                  <Button
+                    @click="
+                      () => {
+                        editorSubmit = true
+                        handleEditMessage(Number(user?.id!), message.id, currentchannelId, editorText, index, message.content)
+                      }
+                    "
+                    >Edit</Button
+                  >
+                  <Button
+                    @click="
+                      () => {
+                        editor[index] = false
+                      }
+                    "
+                    >Cancel</Button
+                  >
+                </div>
+              </div>
+              <div v-else-if="message.links" class="p-3 rounded-lg text-sm w-full">
+                <span v-html="formatMessageWithLinks(message)"></span>
+              </div>
+
+              <div v-else class="p-3 rounded-lg bg-card text-sm w-full">
                 {{ message.content }}
               </div>
+
               <div class="text-xs text-muted-foreground mt-1">
                 {{ new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
               </div>
             </div>
           </div>
-          <!-- Render other's messages differently -->
           <div v-else-if="message.user?.id !== user?.id && close == false" class="flex items-start mb-4">
             <div class="mr-4 flex-shrink-0">
               <div v-if="!message.user?.picture" class="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs">
@@ -537,12 +824,41 @@ onBeforeUnmount(() => {
               </div>
               <img v-else class="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs" :src="message.user.picture" />
             </div>
-            <div class="flex-1">
-              <!-- username -->
+            <div
+              :class="`flex-1 flex-col rounded-md relative ${isActive(index) ? 'bg-card' : ''}`"
+              :onmouseenter="
+                () => {
+                  isHovered[index] = true
+                }
+              "
+              :onmouseleave="() => handleMouseLeave(index)"
+            >
+              <div v-if="message.type != 'system'" class="absolute top-0 right-0" :onmouseenter="() => (isHovered[index] = true)">
+                <DropdownMenu v-model:open="isMenuOpen[index]">
+                  <DropdownMenuTrigger as-child>
+                    <Button variant="ghost" :class="[`${!isActive(index) ? 'opacity-0' : 'opacity-100'}`, 'hover:bg-card']">
+                      <Ellipsis />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuLabel> Options </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <Button @click="handleDeleteMessage(Number(user?.id!), message.id, currentchannelId)" variant="ghost" class="p-0 flex items-center justify-between w-full text-red-500 group">
+                        <span class="group-hover:text-red-600">Delete</span>
+                        <Trash2Icon class="text-red-500 group-hover:text-red-600"></Trash2Icon>
+                      </Button>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <div class="text-base font-bold">
                 {{ message.user?.name }}
               </div>
-              <div class="p-3 rounded-lg bg-muted text-sm max-w-[80%]">
+              <div v-if="message.links" class="p-3 rounded-lg text-sm max-w-[80%]">
+                <span v-html="formatMessageWithLinks(message)"></span>
+              </div>
+              <div v-else class="p-3 rounded-lg text-sm max-w-[80%]">
                 {{ message.content }}
               </div>
               <div class="text-xs text-muted-foreground mt-1">
@@ -554,9 +870,34 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Input -->
-      <div class="p-4 border-t border-border">
+      <div class="flex flex-col justify-center p-4 border-t border-border bg-muted/30">
+        <ImagePreview :images-loading="imagesLoading" :delete="handleDeletePreview" :show="showPreview" :img="ImagePreviewRef!" />
         <div class="flex items-center">
-          <Textarea class="flex-1 min-h-[40px] resize-none" placeholder="Type your message..." v-model="newMessage" @keydown.enter.prevent="sendMessage(currentServerId!, currentchannelId, newMessage)"> </Textarea>
+          <!--Upload image-->
+          <Button @click="openUploadModal" class="mr-2 text-foreground" variant="default">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image-icon lucide-image text-secondary !w-6 !h-6">
+              <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+              <circle cx="9" cy="9" r="2" />
+              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+            </svg>
+          </Button>
+          <UploadThing
+            @uploading="
+              () => {
+                imagesLoading = true
+                console.log(imagesLoading)
+              }
+            "
+            :startUpload="startUpload"
+            @file-clear="handleDeletePreviewAll"
+            :show="isModalOpen"
+            endpoint="imageUploader"
+            @file-ready="handleFileReady"
+            @close="closeUploadModal"
+            @uploadComplete="handleUploadComplete"
+            @uploadError="handleUploadError"
+          />
+          <Textarea class="flex-1 rounded-md min-h-[40px] resize-none bg-background" placeholder="Type your message..." v-model="newMessage" @keydown.enter.prevent="sendMessage(currentServerId!, currentchannelId, newMessage)"> </Textarea>
           <Button class="ml-2 text-secondary" @click="sendMessage(currentServerId!, currentchannelId, newMessage)" :disabled="!connected"> Send </Button>
         </div>
       </div>

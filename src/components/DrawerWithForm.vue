@@ -57,12 +57,12 @@ const handleFormSubmit = (values: any) => {
   <Form v-slot="{ handleSubmit }" as="" keep-values :validation-schema="props.typedSchema">
     <Dialog v-model:open="isOpen">
       <DialogTrigger as-child>
-        <Button variant="default" :class="['', props.classTrigger]">
+        <Button variant="default" :class="['font-poppins', props.classTrigger]">
           {{ triggerText }}
         </Button>
       </DialogTrigger>
       <DialogContent :class="['sm:max-w-[425px]', props.class]">
-        <DialogHeader>
+        <DialogHeader class="font-poppins">
           <DialogTitle>{{ title }}</DialogTitle>
           <DialogDescription>{{ description }}</DialogDescription>
         </DialogHeader>
@@ -70,17 +70,17 @@ const handleFormSubmit = (values: any) => {
         <form id="dialogForm" @submit="handleSubmit($event, handleFormSubmit)">
           <FormField v-slot="{ componentField }" :name="fieldName">
             <FormItem>
-              <FormLabel error-class="text-red-700">{{ label }}</FormLabel>
+              <FormLabel error-class="text-red-700 font-poppins">{{ label }}</FormLabel>
               <FormControl>
-                <Input type="text" :placeholder="placeholder" v-bind="componentField" />
+                <Input type="text" class="font-poppins" :placeholder="placeholder" v-bind="componentField" />
               </FormControl>
-              <FormMessage class="text-red-700" />
+              <FormMessage class="text-red-700 font-poppins" />
             </FormItem>
           </FormField>
         </form>
 
         <DialogFooter>
-          <Button class="text-secondary" type="submit" form="dialogForm">{{ submitText }}</Button>
+          <Button class="text-secondary font-poppins" type="submit" form="dialogForm">{{ submitText }}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

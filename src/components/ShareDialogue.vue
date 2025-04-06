@@ -33,7 +33,7 @@ const disabled = computed(() => {
 <template>
   <Dialog>
     <DialogTrigger as-child>
-      <Button :disabled="disabled" title="Share Invite Code" variant="outline" :class="[props.classTrigger]">
+      <Button :disabled="disabled" title="Share Invite Code" variant="outline" :class="['font-poppins', props.classTrigger]">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-share-2">
           <circle cx="18" cy="5" r="3" />
           <circle cx="6" cy="12" r="3" />
@@ -44,7 +44,7 @@ const disabled = computed(() => {
         <span>{{ triggerText }}</span>
       </Button>
     </DialogTrigger>
-    <DialogContent :class="['sm:max-w-md', props.class]">
+    <DialogContent :class="['sm:max-w-md font-poppins', props.class]">
       <DialogHeader>
         <DialogTitle>{{ title }}</DialogTitle>
         <DialogDescription>
@@ -63,7 +63,7 @@ const disabled = computed(() => {
       </div>
       <DialogFooter class="sm:justify-start">
         <DialogClose as-child>
-          <Button type="button" class="border border-white" variant="outline"> Close </Button>
+          <Button type="button" class="border border-border" variant="outline"> Close </Button>
         </DialogClose>
       </DialogFooter>
     </DialogContent>

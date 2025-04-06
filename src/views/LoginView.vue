@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useAuth } from '@/lib/authContext'
-import api from '@/lib/axios'
+import api, { BACKEND } from '@/lib/axios'
 import { ref, watchEffect } from 'vue'
 import { toast } from 'vue3-toastify'
 
@@ -8,7 +8,7 @@ const email = ref('')
 const password = ref('')
 
 function GoogleAuth() {
-  window.location.href = `https://websocket-api-production.up.railway.app/auth/google`
+  window.location.href = `${BACKEND}/auth/google`
 }
 
 const { setAuthData } = useAuth()
@@ -53,8 +53,8 @@ const simulateLogin = async (email: string, password) => {
 }
 </script>
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-md w-full space-y-8 bg-card border-border border-2 text-card-foreground shadow-lg rounded-lg p-8">
+  <div class="min-h-[calc(100vh-40px)] max-h-[calc(100vh-40px)] flex justify-center items-center bg-background px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md max-h-fit space-y-8 bg-card border-border border-2 text-card-foreground shadow-lg rounded-lg p-8">
       <div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-foreground">Log in or sign up</h2>
       </div>

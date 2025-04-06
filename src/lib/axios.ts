@@ -1,9 +1,14 @@
 import axios from 'axios'
-import { toast } from 'vue3-toastify'
+import { toast, type ToastTheme } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
+import { useTheme } from './UseTheme'
+
+export const BACKEND = 'http://localhost:3000'
+
+const { theme } = useTheme()
 
 const api = axios.create({
-  baseURL: 'https://websocket-api-production.up.railway.app',
+  baseURL: BACKEND,
   withCredentials: true,
   timeout: 5000, // 5 second timeout
 })
@@ -30,7 +35,7 @@ api.interceptors.response.use(
 
     // If the error is a network error
     if (error.code === 'ERR_NETWORK') {
-      toast('Unable to connect to server. Please check your connection.', { autoClose: 5000, type: 'error', theme: 'dark' })
+      toast('Unable to connect to server. Please check your connection.', { autoClose: 5000, type: 'error', theme: theme.value as ToastTheme })
 
       // Retry the request up to 3 times
       if (!originalRequest._retry) {
@@ -51,18 +56,18 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       // window.location.href = '/login'
-      toast(`${error.response?.data?.message || error.response.data.error || 'An error occurred'}`, { autoClose: 5000, type: 'error', theme: 'dark' })
+      toast(`${error.response?.data?.message || error.response.data.error || 'An error occurred'}`, { autoClose: 5000, type: 'error', theme: theme.value as ToastTheme })
       return Promise.reject(error)
     }
 
     // If the error is a 403 (Forbidden)
     if (error.response?.status === 403) {
-      toast('You do not have permission to perform this action', { autoClose: 5000, type: 'error', theme: 'dark' })
+      toast('You do not have permission to perform this action', { autoClose: 5000, type: 'error', theme: theme.value as ToastTheme })
       return Promise.reject(error)
     }
 
     // For all other errors
-    toast(error.response?.data?.message || error.response.data.error || 'An error occurred', { autoClose: 5000, type: 'error', theme: 'dark' })
+    toast(error.response?.data?.message || error.response.data.error || 'An error occurred', { autoClose: 5000, type: 'error', theme: theme.value as ToastTheme })
     return Promise.reject(error)
   },
 )
