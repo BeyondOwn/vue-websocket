@@ -583,7 +583,7 @@ const sendMessage = async (serverId: string, channelId: number, message: string)
 
   // Only proceed with sending if there's a message and connection
   if (newMessage.value.trim() && connected.value && socket.value) {
-    socket.value.emit('sendMessage', serverId, channelId, message)
+    socket.value.emit('sendMessage', serverId, channelId, newMessage.value)
     newMessage.value = ''
     startUpload.value = false
   }
