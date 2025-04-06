@@ -557,23 +557,35 @@ const disconnectSocket = () => {
   }
 }
 
-// Send message to server
-const sendMessage = (serverId: string, channelId: number, message: string) => {
+const sendMessage = async (serverId: string, channelId: number, message: string) => {
   console.log('From Sendmessage ', serverId, channelId, message)
-  if (ImagePreviewRef.value.length > 0 && !imagesUploaded.value) startUpload.value = true
-  // console.log('still sendmessage: ', imagesUploaded.value, startUpload.value)
-  if (ImagePreviewRef.value.length > 0) {
-    if (newMessage.value.trim() && connected.value && socket.value && imagesUploaded.value) {
-      socket.value.emit('sendMessage', serverId, channelId, message)
-      newMessage.value = ''
-      startUpload.value = false
-    }
-  } else {
-    if (newMessage.value.trim() && connected.value && socket.value) {
-      socket.value.emit('sendMessage', serverId, channelId, message)
-      newMessage.value = ''
-      startUpload.value = false
-    }
+
+  // Handle image uploads first if needed
+  if (ImagePreviewRef.value.length > 0 && !imagesUploaded.value) {
+    startUpload.value = true
+    // Assuming there's some function or promise to await for image upload completion
+    await new Promise((resolve) => {
+      // You could implement a watcher or callback here that resolves when imagesUploaded.value becomes true
+      const checkUpload = setInterval(() => {
+        if (imagesUploaded.value) {
+          clearInterval(checkUpload)
+          resolve(true)
+        }
+      }, 100)
+
+      // Optional timeout to prevent infinite waiting
+      setTimeout(() => {
+        clearInterval(checkUpload)
+        resolve(false)
+      }, 30000) // 30 second timeout
+    })
+  }
+
+  // Only proceed with sending if there's a message and connection
+  if (newMessage.value.trim() && connected.value && socket.value) {
+    socket.value.emit('sendMessage', serverId, channelId, message)
+    newMessage.value = ''
+    startUpload.value = false
   }
 }
 
