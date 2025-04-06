@@ -371,7 +371,7 @@ async function getUserServers(user: User): Promise<[getUsersInt]> {
 
 // Connect to socket server
 const connectSocket = () => {
-  socket.value = io(BACKEND, {
+  socket.value = io(`${BACKEND}`, {
     extraHeaders: {
       authorization: `${token.value}`,
       userprofile: JSON.stringify(user.value),
