@@ -3,7 +3,7 @@ import { toast, type ToastTheme } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
 import { useTheme } from './UseTheme'
 
-export const BACKEND = 'https://websocket-api-production.up.railway.app/'
+export const BACKEND = 'https://websocket-api-production.up.railway.app'
 
 const { theme } = useTheme()
 
