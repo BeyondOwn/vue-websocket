@@ -481,7 +481,7 @@ const connectSocket = () => {
     messages.value = messages.value?.filter((message) => {
       return message.id !== messageId
     })
-    toast(`Deleted Message!}`, { autoClose: 3000, type: 'success', theme: theme.value as ToastTheme })
+    toast(`Deleted Message!`, { autoClose: 3000, type: 'success', theme: theme.value as ToastTheme })
   })
 
   socket.value.on('editedMessage', (messageId: string, newContent: string) => {
